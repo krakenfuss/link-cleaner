@@ -1,7 +1,31 @@
 #!//usr/bin/env ruby
+require 'optparse'
 
-directory = ARGV.shift 
-@remove_text = ARGV.shift || ".html"
+options = {}
+option_parser = OptionParser.new do |opts|
+  opts.banner = "Usage: #{File.basename($PROGRAM_NAME)} [options] directory_path"
+  opts.on("-v", "--verbose", "Print out what we have done") do
+    options[:verbose] = true
+  end
+  opts.on("-d", "--dry-run", "Just print out the replaced file content without actually writing them to disk") do
+    options[:dry-run] = true
+  end
+  opts.on("-f FILETYPE", "Give the filetypes extension you want to be parsed e.g. '.html'(default) ") do |suffix|
+    options[:suffix] = suffix
+  end
+end
+
+option_parser.parse!
+
+if ARGV.empty?
+  puts "error: you must supply a directory_path to the files you want to be parsed"
+  puts
+  puts option_parser.help
+else
+  directory = ARGV[0]
+end
+
+@remove_text = options[:suffix] || ".html"
 
 def iterate_directory(directory)
   Dir.foreach(directory) do |entry|
@@ -17,15 +41,6 @@ end
 
 def clean_links(entry)
   file = File.open(entry, "r")
-  # Find the link target
-  # <a\s*href=\s*"([a-z0-9_]+.html)"\s*>
-  
-  # Find only the ending that should be removed
-  # <a\s*href=\s*"[a-z0-9_]+(.html)"\s*>
-  #file.read.match(/<a\s*href=\s*"[a-z0-9_]+(#{@remove_text})"\s*>/mi) do |match|
-  #  puts match.captures
-  #end
-  
   data = file.read
   file.close
   
@@ -34,12 +49,16 @@ def clean_links(entry)
   
   # Block version with verbosity
   data.gsub!(/(<a\s*href=\s*"[a-z0-9_]+)#{@remove_text}("\s*>)/mi) do |match|
-    puts "Substiute in File: #{file.path} \tReplace: #{match} \twith: #{$1}#{$2}"
+    puts "Substiute in File: #{file.path} \tReplace: #{match} \twith: #{$1}#{$2}" if options[:verbose]
     "#{$1}#{$2}"
   end
   
-  # Write the file
-  File.open(entry, "w") {|file| file << data}
+  # Write the file or just print out what has happend without writing to disk
+  if options[:dry-run]
+    puts data
+  else
+    File.open(entry, "w") {|file| file << data}
+  end
 end
 
 def valid_file?(entry)
@@ -50,4 +69,4 @@ def valid_dir?(entry)
   true unless entry == "." || entry == ".."
 end
 
-iterate_directory(directory)
+iterate_directory(directory) if directory
